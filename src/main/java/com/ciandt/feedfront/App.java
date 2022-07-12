@@ -8,18 +8,16 @@ import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
 
 /**
  * Hello world!
- *
  */
-public class App 
-{
-    public static void main( String[] args ) throws ComprimentoInvalidoException, EmailInvalidoException, ArquivoException, EmployeeNaoEncontradoException {
+public class App {
+    public static void main(String[] args) throws ComprimentoInvalidoException, EmailInvalidoException, ArquivoException, EmployeeNaoEncontradoException {
 
-        Employee novoEmployee1 = new Employee("Joao","Santos","joaosantos@mail.com");
-        Employee novoEmployee2 = new Employee("Maria","Duarte","mariaduarte@mail.com");
-        Employee novoEmployee3 = new Employee("Matheus","Cavalcante","matheuscavalcante@mail.com");
-        Employee novoEmployee4 = new Employee("Daniel","Cerqueira","danielcerqueira@mail.com");
-        Employee novoEmployee5 = new Employee("Rafael","Lopes","rafaellopes@mail.com");
-        Employee novoEmployee6 = new Employee("Thiago","Dutra","thiagodutra@mail.com");
+        Employee novoEmployee1 = new Employee("Joao", "Santos", "joaosantos@mail.com");
+        Employee novoEmployee2 = new Employee("Maria", "Duarte", "mariaduarte@mail.com");
+        Employee novoEmployee3 = new Employee("Matheus", "Cavalcante", "matheuscavalcante@mail.com");
+        Employee novoEmployee4 = new Employee("Daniel", "Cerqueira", "danielcerqueira@mail.com");
+        Employee novoEmployee5 = new Employee("Rafael", "Lopes", "rafaellopes@mail.com");
+        Employee novoEmployee6 = new Employee("Thiago", "Dutra", "thiagodutra@mail.com");
 
         System.out.println("-------------------------------");
         try {
@@ -53,7 +51,7 @@ public class App
             novoEmployee1.setSobrenome("da Silva");
 
             Employee atualizaEmployee = Employee.atualizarEmployee(novoEmployee1);
-            System.out.println("Employee Atualizado: "+ atualizaEmployee.toString());
+            System.out.println("Employee atualizado: " + atualizaEmployee.toString());
         } catch (EmailInvalidoException | ArquivoException ex) {
             System.out.println(ex.getMessage());
         }
@@ -61,7 +59,7 @@ public class App
         System.out.println("-------------------------------");
         try {
             Employee.apagarEmployee(novoEmployee1.getId());
-            System.out.println("Cadastro Deletado com sucesso!");
+            System.out.println("Cadastro " + novoEmployee1 + "deletado com sucesso!");
         } catch (EmployeeNaoEncontradoException ex) {
             System.out.println(ex.getMessage());
         }
