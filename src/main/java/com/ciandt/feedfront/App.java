@@ -38,8 +38,8 @@ public class App {
         System.out.println("-------------------------------");
 
         try {
-            System.out.println("Busca com Employee com id: " + novoEmployee1.getId());
-            System.out.println(Employee.buscarEmployee(novoEmployee1.getId()).toString());
+            System.out.println("Busca de employee por id: ");
+            System.out.println(Employee.buscarEmployee(novoEmployee1.getId()));
 
         } catch (EmployeeNaoEncontradoException | ArquivoException ex) {
             System.out.println(ex.getMessage());
@@ -49,9 +49,10 @@ public class App {
         try {
             novoEmployee1.setNome("Jose");
             novoEmployee1.setSobrenome("da Silva");
+            novoEmployee1.setEmail("josedsilva@mail.com");
 
             Employee atualizaEmployee = Employee.atualizarEmployee(novoEmployee1);
-            System.out.println("Employee atualizado: " + atualizaEmployee.toString());
+            System.out.println("Employee atualizado: " + atualizaEmployee);
         } catch (EmailInvalidoException | ArquivoException ex) {
             System.out.println(ex.getMessage());
         }
@@ -59,7 +60,7 @@ public class App {
         System.out.println("-------------------------------");
         try {
             Employee.apagarEmployee(novoEmployee1.getId());
-            System.out.println("Cadastro " + novoEmployee1 + "deletado com sucesso!");
+            System.out.println("Cadastro " + novoEmployee1 + " deletado com sucesso!");
         } catch (EmployeeNaoEncontradoException ex) {
             System.out.println(ex.getMessage());
         }

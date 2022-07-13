@@ -6,52 +6,54 @@ import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
 import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
 
+import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
-public class Employee {
-    private String id;
+public class Employee implements Serializable {
+    private final String id;
     private String nome;
     private String sobrenome;
     private String email;
 
-    private static final String arquivoCriado = "src/main/resources/arquivo.txt";
+    private static final String arquivoCriado = "src/main/resources/";
 
     public Employee(String nome, String sobrenome, String email) throws ComprimentoInvalidoException {
         this.id = UUID.randomUUID().toString();
-        this.nome = nome;
-        this.sobrenome = sobrenome;
+        setNome(nome);
+        setSobrenome(sobrenome);
         this.email = email;
     }
 
-    public Employee(String id, String nome, String sobrenome, String email) {
-        this.id = id;
-        this.nome = nome;
-        this.sobrenome = sobrenome;
-        this.email = email;
+    public static Employee salvarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
+        List<Employee> employees = listarEmployees();
+        for (Employee employ : employees) {
+            if (employ.equals(employee)) {
+                throw new EmailInvalidoException("E-mail ja cadastrado no repositorio");
+            }
+        }
+        Arquivo.criarArquivoEmployee(arquivoCriado, employee);
+        return employee;
     }
 
-    public static boolean salvarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
-        Arquivo.inserirLinhaArquivo(arquivoCriado, EmployeeBuilder.employeeToArquivo(employee));
-        return true;
-    }
-
-    public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
-        Arquivo.alterarLinhaArquivo(arquivoCriado, employee.id, EmployeeBuilder.employeeToArquivo(employee));
+    public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException, EmployeeNaoEncontradoException {
+        buscarEmployee(employee.getId());
+        Arquivo.criarArquivoEmployee(arquivoCriado, employee);
         return employee;
     }
 
     public static List<Employee> listarEmployees() throws ArquivoException {
-        List<String> employees = Arquivo.lerArquivo(arquivoCriado);
-        return EmployeeBuilder.arquivoToEmployees(employees);
+        return Arquivo.buscarTodosEmployeesArquivo(arquivoCriado);
     }
 
     public static Employee buscarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        return EmployeeBuilder.arquivoToEmployee(Arquivo.buscarPorIdArquivo(arquivoCriado, id));
+        return Arquivo.buscarEmployeePorIdArquivo(arquivoCriado + id + ".byte");
     }
 
     public static void apagarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        Arquivo.deletarLinhaArquivo(arquivoCriado, id);
+        buscarEmployee(id);
+        Arquivo.deletarLinhaArquivo(arquivoCriado + id + ".byte");
     }
 
     public String getNome() {
@@ -59,6 +61,8 @@ public class Employee {
     }
 
     public void setNome(String nome) throws ComprimentoInvalidoException {
+        if (nome.length() <= 2)
+            throw new ComprimentoInvalidoException("Comprimento do nome deve ser maior que 2 caracteres.");
         this.nome = nome;
     }
 
@@ -67,6 +71,8 @@ public class Employee {
     }
 
     public void setSobrenome(String sobrenome) throws ComprimentoInvalidoException {
+        if (sobrenome.length() <= 2)
+            throw new ComprimentoInvalidoException("Comprimento do sobrenome deve ser maior que 2 caracteres.");
         this.sobrenome = sobrenome;
     }
 
@@ -74,7 +80,8 @@ public class Employee {
         return email;
     }
 
-    public void setEmail(String email) {
+    public void setEmail(String email) throws EmailInvalidoException {
+
         this.email = email;
     }
 
@@ -90,4 +97,20 @@ public class Employee {
                 ", email='" + email + '\'';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Employee employee = (Employee) o;
+
+        return Objects.equals(email, employee.email);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id != null ? id.hashCode() : 0;
+        result = 31 * result + (email != null ? email.hashCode() : 0);
+        return result;
+    }
 }

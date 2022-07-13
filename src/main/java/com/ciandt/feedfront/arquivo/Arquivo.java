@@ -1,73 +1,65 @@
 package com.ciandt.feedfront.arquivo;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import com.ciandt.feedfront.employee.Employee;
+import com.ciandt.feedfront.excecoes.ArquivoException;
+import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
+
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Arquivo {
-    public static void inserirLinhaArquivo(String filePath, String novaLinha) {
+    public static void criarArquivoEmployee(String filePath, Employee employee) throws ArquivoException {
         try {
-            Files.write(Paths.get(filePath), novaLinha.getBytes(StandardCharsets.UTF_8),
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            e.printStackTrace();
+            FileOutputStream fileOut =
+                    new FileOutputStream(filePath + employee.getId() + ".byte");
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(employee);
+            out.close();
+            fileOut.close();
+        } catch (IOException i) {
+            throw new ArquivoException("");
         }
     }
 
-    public static void alterarLinhaArquivo(String filePath, String id, String alterarLinha) {
+    public static void deletarLinhaArquivo(String filePath) throws ArquivoException {
         try {
-            List<String> lines = Files.readAllLines(Paths.get(filePath), StandardCharsets.UTF_8);
-            String employee = buscarPorIdArquivo(filePath, id);
-            lines.set(lines.indexOf(employee), alterarLinha);
-        } catch (IOException e) {
-            e.printStackTrace();
+            Files.delete(Paths.get(filePath));
+        } catch (IOException i) {
+            throw new ArquivoException("");
         }
     }
 
-    public static void deletarLinhaArquivo(String filePath, String id) {
-        List<String> employees;
-        try {
-            Path path = Paths.get(filePath);
-            Stream<String> stream = Files.lines(path);
-            employees = stream
-                    .filter(line -> !line.startsWith(id))
-                    .map(String::toString)
-                    .collect(Collectors.toList());
-            Files.delete(path);
-            Files.write(path, employees, StandardCharsets.UTF_8, StandardOpenOption.CREATE);
+    public static List<Employee> buscarTodosEmployeesArquivo(String filePath) throws ArquivoException {
+        List<Employee> employees;
+        try (Stream<Path> paths = Files.walk(Paths.get(filePath))) {
+            employees = paths.filter(Files::isRegularFile).map(e -> {
+                try {
+                    return buscarEmployeePorIdArquivo(e.toString());
+                } catch (EmployeeNaoEncontradoException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }).collect(Collectors.toList());
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static List<String> lerArquivo(String filePath) {
-        List<String> employees = new ArrayList<>();
-        try (Stream<String> stream = Files.lines(Paths.get(filePath))) {
-            employees = stream.map(String::toString).collect(Collectors.toList());
-        } catch (IOException e) {
-            e.printStackTrace();
+            throw new ArquivoException("");
         }
         return employees;
     }
 
-    public static String buscarPorIdArquivo(String filePath, String id) {
-        String employee = "";
+    public static Employee buscarEmployeePorIdArquivo(String filePath) throws EmployeeNaoEncontradoException {
+        Employee employee;
         try {
-            Stream<String> stream = Files.lines(Paths.get(filePath));
-            employee = stream
-                    .filter(line -> line.startsWith(id))
-                    .map(String::toString)
-                    .collect(Collectors.toList()).get(0);
-        } catch (IOException e) {
-            e.printStackTrace();
+            FileInputStream fileIn = new FileInputStream(filePath);
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            employee = (Employee) in.readObject();
+            in.close();
+            fileIn.close();
+        } catch (IOException | ClassNotFoundException i) {
+            throw new EmployeeNaoEncontradoException("Employee não encontrado");
         }
         return employee;
     }
