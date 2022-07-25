@@ -1,13 +1,8 @@
-package com.ciandt.feedfront.employee;
+package com.ciandt.feedfront.models;
 
-import com.ciandt.feedfront.arquivo.Arquivo;
-import com.ciandt.feedfront.excecoes.ArquivoException;
 import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
-import com.ciandt.feedfront.excecoes.EmployeeNaoEncontradoException;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -16,44 +11,22 @@ public class Employee implements Serializable {
     private String nome;
     private String sobrenome;
     private String email;
-
-    private static final String arquivoCriado = "src/main/resources/";
-
+    private String arquivo;
+    
     public Employee(String nome, String sobrenome, String email) throws ComprimentoInvalidoException {
         this.id = UUID.randomUUID().toString();
+        setArquivo(getId() + ".byte");
         setNome(nome);
         setSobrenome(sobrenome);
-        this.email = email;
+        setEmail(email);
     }
 
-    public static Employee salvarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException {
-        List<Employee> employees = listarEmployees();
-        for (Employee employ : employees) {
-            if (employ.equals(employee)) {
-                throw new EmailInvalidoException("E-mail ja cadastrado no repositorio");
-            }
-        }
-        Arquivo.criarArquivoEmployee(arquivoCriado, employee);
-        return employee;
+    public String getArquivo() {
+        return arquivo;
     }
 
-    public static Employee atualizarEmployee(Employee employee) throws ArquivoException, EmailInvalidoException, EmployeeNaoEncontradoException {
-        buscarEmployee(employee.getId());
-        Arquivo.criarArquivoEmployee(arquivoCriado, employee);
-        return employee;
-    }
-
-    public static List<Employee> listarEmployees() throws ArquivoException {
-        return Arquivo.buscarTodosEmployeesArquivo(arquivoCriado);
-    }
-
-    public static Employee buscarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        return Arquivo.buscarEmployeePorIdArquivo(arquivoCriado + id + ".byte");
-    }
-
-    public static void apagarEmployee(String id) throws ArquivoException, EmployeeNaoEncontradoException {
-        buscarEmployee(id);
-        Arquivo.deletarLinhaArquivo(arquivoCriado + id + ".byte");
+    public void setArquivo(String arquivo) {
+        this.arquivo = arquivo;
     }
 
     public String getNome() {
@@ -80,8 +53,7 @@ public class Employee implements Serializable {
         return email;
     }
 
-    public void setEmail(String email) throws EmailInvalidoException {
-
+    public void setEmail(String email) {
         this.email = email;
     }
 
