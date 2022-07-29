@@ -2,80 +2,75 @@ package com.ciandt.feedfront.services;
 
 import com.ciandt.feedfront.contracts.DAO;
 import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.excecoes.ArquivoException;
+import com.ciandt.feedfront.daos.EmployeeDAO;
 import com.ciandt.feedfront.excecoes.BusinessException;
 import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.excecoes.EntidadeNaoEncontradaException;
 import com.ciandt.feedfront.models.Employee;
 
-import java.io.IOException;
+import javax.persistence.PersistenceException;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 public class EmployeeService implements Service<Employee> {
     private DAO<Employee> dao;
 
     public EmployeeService() {
-
+        this.dao = new EmployeeDAO();
     }
 
     @Override
-    public List<Employee> listar() throws ArquivoException {
-        try {
-            return dao.listar();
-        } catch (IOException e) {
-            throw new ArquivoException("");
-        }
+    public List<Employee> listar() {
+        return dao.listar();
     }
 
     @Override
-    public Employee buscar(String id) throws ArquivoException, BusinessException {
+    public Employee buscar(long id) throws BusinessException {
         try {
-            return dao.buscar(id);
-        } catch (IOException e) {
+            Optional<Employee> employee = dao.buscar(id);
+            if (employee.isPresent()) {
+                return employee.get();
+            }
+            throw new EntidadeNaoEncontradaException("não foi possível encontrar o employee");
+        } catch (NoSuchElementException ex) {
             throw new EntidadeNaoEncontradaException("não foi possível encontrar o employee");
         }
     }
 
     @Override
-    public Employee salvar(Employee employee) throws ArquivoException, BusinessException, IllegalArgumentException {
+    public Employee salvar(Employee employee) throws BusinessException {
         if (employee == null)
             throw new IllegalArgumentException("employee inválido");
-        List<Employee> employees = listar();
-        for (Employee employ : employees) {
-            if (!employ.getId().equals(employee.getId()) && employ.getEmail().equals(employee.getEmail())) {
-                throw new EmailInvalidoException("já existe um employee cadastrado com esse e-mail");
-            }
-        }
         try {
-            dao.salvar(employee);
-        } catch (IOException e) {
-            throw new ArquivoException("");
+            return dao.salvar(employee);
+        } catch (PersistenceException ex) {
+            throw new EmailInvalidoException("já existe um employee cadastrado com esse e-mail");
         }
-        return employee;
     }
 
     @Override
-    public Employee atualizar(Employee employee) throws ArquivoException, BusinessException, IllegalArgumentException {
+    public Employee atualizar(Employee employee) throws BusinessException {
         if (employee == null)
             throw new IllegalArgumentException("employee inválido");
+        if (employee.getId() == null)
+            throw new IllegalArgumentException("employee inválido: não possui ID");
         buscar(employee.getId());
         try {
             salvar(employee);
         } catch (EmailInvalidoException e) {
-            throw new EmailInvalidoException("E-mail ja cadastrado no repositorio");
-        } catch (IOException e) {
-            throw new ArquivoException("");
+            throw new EmailInvalidoException("já existe um employee cadastrado com esse e-mail");
         }
         return employee;
     }
 
     @Override
-    public void apagar(String id) throws ArquivoException, BusinessException {
+    public void apagar(long id) throws BusinessException {
         buscar(id);
         try {
             dao.apagar(id);
-        } catch (IOException e) {
-            throw new EntidadeNaoEncontradaException("não foi possível encontrar o employee");
+        } catch (PersistenceException e) {
+            throw new IllegalArgumentException("employee não pode ser excluido porque possui feedbacks vinculados");
         }
     }
 

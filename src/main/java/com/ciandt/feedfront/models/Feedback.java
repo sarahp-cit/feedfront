@@ -1,42 +1,58 @@
 package com.ciandt.feedfront.models;
 
+import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
+
+import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.util.UUID;
 
+@Entity
+@Table(name = "FEEDBACK")
 public class Feedback implements Serializable {
-    private final String id;
-    private LocalDate data;
-    private Employee autor;
-    private Employee proprietario;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = "descricao", nullable = false)
     private String descricao;
-    private String oqueMelhora;
+    @Column(name = "oQueMelhora")
+    private String oQueMelhora;
+    @Column(name = "comoMelhora")
     private String comoMelhora;
-    private String arquivo;
+    @Column(name = "data", nullable = false)
+    private LocalDate data;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "autor_id")
+    private Employee autor;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "proprietario_id", nullable = false)
+    private Employee proprietario;
 
-    public Feedback(LocalDate data, Employee autor, Employee proprietario, String descricao,
-                    String oqueMelhora, String comoMelhora) {
-        this.id = UUID.randomUUID().toString();
-        setArquivo(getId() + ".byte");
-        setData(data);
-        setData(data);
-        setProprietario(proprietario);
-        setDescricao(descricao);
-        setOqueMelhora(oqueMelhora);
-        setComoMelhora(comoMelhora);
+    public Feedback() {
     }
 
-    public Feedback(LocalDate data, Employee autor, Employee proprietario, String descricao) {
-        this.id = UUID.randomUUID().toString();
-        setArquivo(getId() + ".byte");
+    public Feedback(LocalDate data, Employee autor, Employee proprietario, String descricao) throws ComprimentoInvalidoException {
         setData(data);
         setAutor(autor);
         setProprietario(proprietario);
         setDescricao(descricao);
     }
 
-    public String getId() {
+    public Feedback(LocalDate data, Employee autor, Employee proprietario, String descricao,
+                    String oqueMelhora, String comoMelhora) throws ComprimentoInvalidoException {
+        setData(data);
+        setAutor(autor);
+        setProprietario(proprietario);
+        setDescricao(descricao);
+        setOqueMelhora(oqueMelhora);
+        setComoMelhora(comoMelhora);
+    }
+
+    public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public LocalDate getData() {
@@ -67,16 +83,18 @@ public class Feedback implements Serializable {
         return descricao;
     }
 
-    public void setDescricao(String descricao) {
+    public void setDescricao(String descricao) throws ComprimentoInvalidoException {
+        if (descricao.length() <= 2)
+            throw new ComprimentoInvalidoException("Comprimento da descrição deve ser maior que 2 caracteres.");
         this.descricao = descricao;
     }
 
     public String getOqueMelhora() {
-        return oqueMelhora;
+        return oQueMelhora;
     }
 
     public void setOqueMelhora(String oqueMelhora) {
-        this.oqueMelhora = oqueMelhora;
+        this.oQueMelhora = oqueMelhora;
     }
 
     public String getComoMelhora() {
@@ -87,11 +105,20 @@ public class Feedback implements Serializable {
         this.comoMelhora = comoMelhora;
     }
 
-    public String getArquivo() {
-        return arquivo;
-    }
-
-    public void setArquivo(String arquivo) {
-        this.arquivo = arquivo;
+    @Override
+    public String toString() {
+        String nomeAutor;
+        if (autor != null) {
+            nomeAutor = autor.getNome();
+        } else {
+            nomeAutor = "Anônimo";
+        }
+        return "\nid=" + id +
+                ", descricao='" + descricao + '\'' +
+                ", oQueMelhora='" + oQueMelhora + '\'' +
+                ", comoMelhora='" + comoMelhora + '\'' +
+                ", data=" + data + '\'' +
+                ", autor=" + nomeAutor + '\'' +
+                ", proprietario=" + proprietario.getNome() + '\'';
     }
 }

@@ -1,18 +1,14 @@
 package com.ciandt.feedfront.controllers;
 
 import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.controller.EmployeeController;
-import com.ciandt.feedfront.excecoes.ArquivoException;
 import com.ciandt.feedfront.excecoes.BusinessException;
-import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.models.Employee;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -24,10 +20,11 @@ public class EmployeeControllerTest {
 
     @BeforeEach
     @SuppressWarnings("unchecked")
-    public void initEach() throws ArquivoException, BusinessException, ComprimentoInvalidoException {
+    public void setup() throws BusinessException {
         employeeController = new EmployeeController();
         employeeService = (Service<Employee>) Mockito.mock(Service.class);
         employee = new Employee("João", "Silveira", "j.silveira@email.com");
+        employee.setId(1L);
 
         employeeController.setService(employeeService);
 
@@ -38,34 +35,36 @@ public class EmployeeControllerTest {
     public void listar() {
         Collection<Employee> employees = assertDoesNotThrow(employeeController::listar);
 
-        assertNotNull(employees);
+        assertTrue(employees instanceof List);
     }
 
     @Test
-    public void buscar() throws IOException, BusinessException {
-        String uuid = employee.getId();
-        when(employeeService.buscar(uuid)).thenReturn(employee);
+    public void buscar() throws BusinessException {
+        long id = employee.getId();
+        when(employeeService.buscar(id)).thenReturn(employee);
 
-        Employee employeeSalvo = assertDoesNotThrow(() -> employeeController.buscar(uuid));
+        Employee employeeSalvo = assertDoesNotThrow(() -> employeeController.buscar(id));
 
         assertEquals(employee, employeeSalvo);
     }
 
     @Test
-    public void salvar() throws IOException, BusinessException {
-        when(employeeService.salvar(employee)).thenReturn(employee);
+    public void salvar() throws BusinessException {
+        Employee novoEmployee = new Employee("Cristiano", "Halland", "fifa@email.com");
 
-        Employee employeeSalvo = assertDoesNotThrow(() -> employeeController.salvar(employee));
+        when(employeeService.salvar(novoEmployee)).thenReturn(novoEmployee);
 
-        assertEquals(employee, employeeSalvo);
+        Employee employeeSalvo = assertDoesNotThrow(() -> employeeController.salvar(novoEmployee));
+
+        assertEquals(novoEmployee, employeeSalvo);
     }
 
     @Test
-    public void atualizar() throws IOException, BusinessException, EmailInvalidoException {
-        String uuid = employee.getId();
+    public void atualizar() throws BusinessException {
+        long id = employee.getId();
         employee.setEmail("joao.silveira@email.com");
 
-        when(employeeService.buscar(uuid)).thenReturn(employee);
+        when(employeeService.buscar(id)).thenReturn(employee);
         when(employeeService.atualizar(employee)).thenReturn(employee);
 
         Employee employeeAtualizado = assertDoesNotThrow(() -> employeeController.atualizar(employee));
@@ -74,10 +73,10 @@ public class EmployeeControllerTest {
     }
 
     @Test
-    public void apagar() throws IOException, BusinessException {
-        String uuid = employee.getId();
-        when(employeeService.buscar(uuid)).thenReturn(employee);
+    public void apagar() throws BusinessException {
+        long id = employee.getId();
+        when(employeeService.buscar(id)).thenReturn(employee);
 
-        assertDoesNotThrow(() -> employeeController.apagar(uuid));
+        assertDoesNotThrow(() -> employeeController.apagar(id));
     }
 }

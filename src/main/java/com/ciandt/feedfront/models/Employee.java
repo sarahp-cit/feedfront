@@ -2,31 +2,37 @@ package com.ciandt.feedfront.models;
 
 import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
 
+import javax.persistence.*;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
+@Entity
+@Table(name = "EMPLOYEE")
 public class Employee implements Serializable {
-    private final String id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = "nome", nullable = false)
     private String nome;
+    @Column(name = "sobrenome", nullable = false)
     private String sobrenome;
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
-    private String arquivo;
-    
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "autor_id")
+    private List<Feedback> feedbackFeitos;
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proprietario_id")
+    private List<Feedback> feedbackRecebidos;
+
+    public Employee() {
+    }
+
     public Employee(String nome, String sobrenome, String email) throws ComprimentoInvalidoException {
-        this.id = UUID.randomUUID().toString();
-        setArquivo(getId() + ".byte");
         setNome(nome);
         setSobrenome(sobrenome);
         setEmail(email);
-    }
-
-    public String getArquivo() {
-        return arquivo;
-    }
-
-    public void setArquivo(String arquivo) {
-        this.arquivo = arquivo;
     }
 
     public String getNome() {
@@ -57,16 +63,36 @@ public class Employee implements Serializable {
         this.email = email;
     }
 
-    public String getId() {
+    public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public List<Feedback> getFeedbackFeitos() {
+        return feedbackFeitos;
+    }
+
+    public List<Feedback> getFeedbackRecebidos() {
+        return feedbackRecebidos;
+    }
+
+    public void setFeedbackFeitos(List<Feedback> feedbackFeitos) {
+        this.feedbackFeitos = feedbackFeitos;
+    }
+
+    public void setFeedbackRecebidos(List<Feedback> feedbackRecebidos) {
+        this.feedbackRecebidos = feedbackRecebidos;
     }
 
     @Override
     public String toString() {
-        return "id='" + id + '\'' +
-                ", nome='" + nome + '\'' +
-                ", sobrenome='" + sobrenome + '\'' +
-                ", email='" + email + '\'';
+        return "\nid='" + id + "'" +
+                ", nome='" + nome + "'" +
+                ", sobrenome='" + sobrenome + "'" +
+                ", email='" + email + "'";
     }
 
     @Override
@@ -76,6 +102,7 @@ public class Employee implements Serializable {
 
         Employee employee = (Employee) o;
 
+        if (!Objects.equals(id, employee.id)) return false;
         return Objects.equals(email, employee.email);
     }
 

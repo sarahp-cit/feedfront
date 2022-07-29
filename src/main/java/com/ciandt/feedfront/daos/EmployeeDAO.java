@@ -1,74 +1,58 @@
 package com.ciandt.feedfront.daos;
 
 import com.ciandt.feedfront.contracts.DAO;
-import com.ciandt.feedfront.excecoes.EntidadeNaoSerializavelException;
 import com.ciandt.feedfront.models.Employee;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import javax.persistence.EntityManager;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Optional;
+
+import static com.ciandt.feedfront.utils.PersistenceUtil.getEntityManagerFactory;
 
 public class EmployeeDAO implements DAO<Employee> {
-    private final String repositorioPath = "src/main/resources/data/employee/";
+    private EntityManager entityManager;
 
-    @Override
-    public boolean tipoImplementaSerializable() {
-        throw new UnsupportedOperationException();
+    public EmployeeDAO() {
+        entityManager = getEntityManagerFactory().createEntityManager();
     }
 
     @Override
-    public List<Employee> listar() throws IOException, EntidadeNaoSerializavelException {
-        List<Employee> employees;
-        Stream<Path> paths = Files.walk(Paths.get(repositorioPath));
-
-        List<String> files = paths
-                .map(p -> p.getFileName().toString())
-                .filter(p -> p.endsWith(".byte"))
-                .map(p -> p.replace(".byte", ""))
-                .collect(Collectors.toList());
-
-        employees = files.stream().map(id -> {
-            try {
-                return buscar(id);
-            } catch (IOException ex) {
-                throw new EntidadeNaoSerializavelException();
-            }
-        }).collect(Collectors.toList());
-        return employees;
+    public List<Employee> listar() {
+        return entityManager.createQuery("SELECT emp FROM Employee emp").getResultList();
     }
 
     @Override
-    public Employee buscar(String id) throws IOException, EntidadeNaoSerializavelException {
-        Employee employee;
-        try {
-            FileInputStream fileIn = new FileInputStream(repositorioPath + id + ".byte");
-            ObjectInputStream in = new ObjectInputStream(fileIn);
-            employee = (Employee) in.readObject();
-            in.close();
-            fileIn.close();
-        } catch (IOException | ClassNotFoundException i) {
-            throw new IOException("");
+    public Optional<Employee> buscar(long id) {
+        Employee employee = entityManager.find(Employee.class, id);
+        return Optional.ofNullable(employee);
+    }
+
+    @Override
+    public Employee salvar(Employee employee) {
+        var transaction = entityManager.getTransaction();
+        transaction.begin();
+        employee = entityManager.merge(employee);
+        transaction.commit();
+        entityManager.clear();
+        return employee;
+    }
+
+    @Override
+    public boolean apagar(long id) {
+        Optional<Employee> employee = buscar(id);
+        if (employee.isPresent()) {
+            var transaction = entityManager.getTransaction();
+            transaction.begin();
+            entityManager.remove(employee.get());
+            transaction.commit();
+            return true;
         }
-        return employee;
+        return false;
+
     }
 
     @Override
-    public Employee salvar(Employee employee) throws IOException, EntidadeNaoSerializavelException {
-        FileOutputStream fileOut = new FileOutputStream(repositorioPath + employee.getArquivo());
-        ObjectOutputStream out = new ObjectOutputStream(fileOut);
-        out.writeObject(employee);
-        out.close();
-        fileOut.close();
-        return employee;
-    }
-
-    @Override
-    public boolean apagar(String id) throws IOException, EntidadeNaoSerializavelException {
-        Files.delete(Paths.get(repositorioPath + id + ".byte"));
-        return true;
+    public void setEntityManager(EntityManager entityManager) {
+        this.entityManager = entityManager;
     }
 }

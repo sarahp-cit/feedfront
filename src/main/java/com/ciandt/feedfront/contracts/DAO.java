@@ -1,19 +1,18 @@
 package com.ciandt.feedfront.contracts;
 
-import com.ciandt.feedfront.excecoes.EntidadeNaoSerializavelException;
-
-import java.io.IOException;
+import javax.persistence.EntityManager;
 import java.util.List;
+import java.util.Optional;
 
-public interface DAO<E> {
-    boolean tipoImplementaSerializable();
+public interface DAO<T> {
 
-    List<E> listar() throws IOException, EntidadeNaoSerializavelException;
+    List<T> listar();
 
-    E buscar(String id) throws IOException, EntidadeNaoSerializavelException;
+    Optional<T> buscar(long id);
 
-    E salvar(E e) throws IOException, EntidadeNaoSerializavelException;
+    T salvar(T t);
 
-    boolean apagar(String id) throws IOException, EntidadeNaoSerializavelException;
+    boolean apagar(long id);
 
+    void setEntityManager(EntityManager entityManager);
 }

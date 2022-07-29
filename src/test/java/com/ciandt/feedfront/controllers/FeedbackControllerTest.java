@@ -1,11 +1,7 @@
 package com.ciandt.feedfront.controllers;
 
 import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.controller.FeedbackController;
-import com.ciandt.feedfront.excecoes.ArquivoException;
 import com.ciandt.feedfront.excecoes.BusinessException;
-import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.models.Employee;
 import com.ciandt.feedfront.models.Feedback;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,79 +10,68 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 public class FeedbackControllerTest {
-    private Feedback feedback;
-    private Employee autor;
-    private Employee proprietario;
-    private FeedbackController controller;
 
-    private Service<Feedback> service;
+    private Feedback feedback;
+
+    private Employee autor;
+
+    private Employee proprietario;
+
+    private FeedbackController controller;
+    private Service<Feedback> feedbackService;
 
     @BeforeEach
-    public void initEach() throws IOException, ComprimentoInvalidoException {
+    @SuppressWarnings("unchecked")
+    public void setup() throws IOException, BusinessException {
+        feedbackService = (Service<Feedback>) Mockito.mock(Service.class);
+
         controller = new FeedbackController();
+        controller.setService(feedbackService);
+
         autor = new Employee("João", "Silveira", "j.silveira@email.com");
         proprietario = new Employee("Mateus", "Santos", "m.santos@email.com");
-        service = Mockito.mock(Service.class);
-        controller.setService(service);
-        feedback = new Feedback(LocalDate.now(), autor, proprietario, "Agradeco muito pelo apoio feito pelo colega!");//construtor 1
 
+        feedback = new Feedback(LocalDate.now(), autor, proprietario, "Agradeco muito pelo apoio feito pelo colega!");//construtor 1
+        feedback.setId(1L);
+
+        when(feedbackService.salvar(feedback)).thenReturn(feedback);
+        controller.salvar(feedback);
     }
 
     @Test
-    public void listar() throws ArquivoException {
-        List<Feedback> lista = new ArrayList<>();
-        lista.add(feedback);
-        when(service.listar()).thenReturn(lista);
+    public void listar() {
         Collection<Feedback> listaFeedback = controller.listar();
 
         assertNotNull(listaFeedback);
     }
 
     @Test
-    public void salvar() throws BusinessException, ArquivoException {
-        when(service.salvar(feedback)).thenReturn(feedback);
-        assertDoesNotThrow(() -> controller.salvar(feedback));
-    }
+    public void buscar() throws BusinessException {
+        long id = feedback.getId();
 
-    @Test
-    public void buscar() throws BusinessException, ArquivoException {
+        when(feedbackService.buscar(id)).thenReturn(feedback);
 
-        String uuid = feedback.getId();
-
-        when(service.buscar(uuid)).thenReturn(feedback);
-
-        Feedback feedbackSalvo = assertDoesNotThrow(() -> controller.buscar(uuid));
+        Feedback feedbackSalvo = assertDoesNotThrow(() -> controller.buscar(id));
 
         assertEquals(feedback, feedbackSalvo);
 
     }
 
     @Test
-    public void atualizar() throws IOException, BusinessException, EmailInvalidoException {
-        String uuid = feedback.getId();
-        feedback.setOqueMelhora("Cobertura de código");
+    public void salvar() throws BusinessException {
+        Feedback novoFeedback = new Feedback(LocalDate.now(), null, proprietario, "novo");
 
-        when(service.buscar(uuid)).thenReturn(feedback);
-        when(service.atualizar(feedback)).thenReturn(feedback);
+        when(feedbackService.salvar(novoFeedback)).thenReturn(novoFeedback);
 
-        Feedback feedbackAtualizado = assertDoesNotThrow(() -> controller.atualizar(feedback));
+        Feedback feedbackSalvo = controller.salvar(novoFeedback);
 
-        assertEquals(feedback, feedbackAtualizado);
+        assertEquals(novoFeedback, feedbackSalvo);
     }
 
-    @Test
-    public void apagar() throws IOException, BusinessException {
-        String uuid = feedback.getId();
-        when(service.buscar(uuid)).thenReturn(feedback);
-
-        assertDoesNotThrow(() -> controller.apagar(uuid));
-    }
 }

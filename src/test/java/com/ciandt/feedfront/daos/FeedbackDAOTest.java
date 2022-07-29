@@ -2,49 +2,63 @@ package com.ciandt.feedfront.daos;
 
 import com.ciandt.feedfront.contracts.DAO;
 import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.models.Employee;
 import com.ciandt.feedfront.models.Feedback;
+import org.hibernate.PropertyValueException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import javax.persistence.PersistenceException;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class FeedbackDAOTest {
-    private final LocalDate localDate = LocalDate.now();
-    private final String LOREM_IPSUM_FEEDBACK = "Lorem Ipsum is simply dummy text of the printing and typesetting industry";
-    private Feedback feedback;
     private Employee autor;
     private Employee proprietario;
+    private Feedback feedback;
+
     private DAO<Feedback> feedbackDAO;
+    private EntityManager entityManager;
 
     @BeforeEach
-    public void initEach() throws IOException, ComprimentoInvalidoException {
-        Files.walk(Paths.get("src/main/resources/data/feedback/"))
-                .filter(p -> p.toString().endsWith(".byte"))
-                .forEach(p -> {
-                    new File(p.toString()).delete();
-                });
+    public void setup() throws ComprimentoInvalidoException {
+        EntityManagerFactory entityManagerFactory = Persistence
+                .createEntityManagerFactory("feedfront");
+        entityManager = entityManagerFactory.createEntityManager();
 
         feedbackDAO = new FeedbackDAO();
-        autor = new Employee("João", "Silveira", "j.silveira@email.com");
-        proprietario = new Employee("Mateus", "Santos", "m.santos@email.com");
+        feedbackDAO.setEntityManager(entityManager);
 
-        feedback = new Feedback(localDate, autor, proprietario, LOREM_IPSUM_FEEDBACK);
+        autor = new Employee("joao", "silveira", "j.silveira@email.com");
+        proprietario = new Employee("joao", "bruno", "j.bruno@email.com");
+
+        feedback = new Feedback(LocalDate.now(), autor, proprietario, "descrição");
+
+        entityManager.getTransaction().begin();
+        entityManager.createQuery("delete from Feedback f where 1 = 1").executeUpdate();
+        entityManager.createQuery("delete from Employee e where 1 = 1").executeUpdate();
+
+        entityManager.persist(autor);
+        entityManager.persist(proprietario);
+        entityManager.getTransaction().commit();
 
         feedbackDAO.salvar(feedback);
     }
 
+    @AfterEach
+    public void closeEntityManager() {
+        entityManager.close();
+    }
+
     @Test
-    public void listar() throws IOException {
+    public void listar() {
         List<Feedback> result = feedbackDAO.listar();
 
         assertFalse(result.isEmpty());
@@ -52,45 +66,29 @@ public class FeedbackDAOTest {
 
     @Test
     public void buscar() {
-        String idValido = feedback.getId();
-        String idInvalido = UUID.randomUUID().toString();
+        long idInvalido = -1;
+        long idValido = feedback.getId();
 
-        assertThrows(IOException.class, () -> feedbackDAO.buscar(idInvalido));
-        Feedback feedbackSalvo = assertDoesNotThrow(() -> feedbackDAO.buscar(idValido));
+        Optional<Feedback> vazio = feedbackDAO.buscar(idInvalido);
+        Optional<Feedback> preenchido = feedbackDAO.buscar(idValido);
 
-        assertEquals(feedbackSalvo.getId(), feedback.getId());
+        assertTrue(vazio.isEmpty());
+        assertTrue(preenchido.isPresent());
+        assertEquals(preenchido.get(), feedback);
     }
 
     @Test
-    public void salvar() throws IOException, ComprimentoInvalidoException {
-        String id = feedback.getId();
-        Feedback feedbackSalvo = feedbackDAO.buscar(id);
-        autor = new Employee("João", "Silveira", "j.silveira@email.com");
-        proprietario = new Employee("Mateus", "Santos", "m.santos@email.com");
-        Feedback feedbackNaoSalvo = new Feedback(localDate, autor, proprietario, LOREM_IPSUM_FEEDBACK);
+    public void salvar() throws ComprimentoInvalidoException {
+        Feedback feedbackValido1 = new Feedback(LocalDate.now(), null, proprietario, "descrição");
+        Feedback feedbackValido2 = new Feedback(LocalDate.now(), null, proprietario, "descrição", "oque", "como");
 
-        assertEquals(feedback.getId(), feedbackSalvo.getId());
-        assertDoesNotThrow(() -> feedbackDAO.salvar(feedbackNaoSalvo));
-    }
+        Feedback feedbackInvalido = new Feedback(LocalDate.now(), null, null, "descrição");
 
-    @Test
-    public void atualizarDados() throws IOException, ComprimentoInvalidoException, EmailInvalidoException {
-        feedback.setOqueMelhora("A cobertura de testes");
-        feedback.setComoMelhora("Fazendo novos testes");
-        Feedback feedbackSalvo = feedbackDAO.buscar(feedback.getId());
+        assertDoesNotThrow(() -> feedbackDAO.salvar(feedbackValido1));
+        assertDoesNotThrow(() -> feedbackDAO.salvar(feedbackValido2));
 
-        assertNotEquals(feedbackSalvo.getComoMelhora(), feedback.getComoMelhora());
-        assertNotEquals(feedbackSalvo.getOqueMelhora(), feedback.getOqueMelhora());
+        PersistenceException exception = assertThrows(PersistenceException.class, () -> feedbackDAO.salvar(feedbackInvalido));
 
-        Feedback feedbackAtualizado = feedbackDAO.salvar(feedback);
-
-        assertEquals(feedbackAtualizado, feedback);
-    }
-
-    @Test
-    public void apagar() {
-        boolean apagou = assertDoesNotThrow(() -> feedbackDAO.apagar(feedback.getId()));
-        assertTrue(apagou);
-        assertThrows(IOException.class, () -> feedbackDAO.buscar(feedback.getId()));
+        assertTrue(exception.getCause() instanceof PropertyValueException);
     }
 }

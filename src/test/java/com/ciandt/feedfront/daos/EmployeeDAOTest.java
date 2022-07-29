@@ -2,38 +2,55 @@ package com.ciandt.feedfront.daos;
 
 import com.ciandt.feedfront.contracts.DAO;
 import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
 import com.ciandt.feedfront.models.Employee;
+import org.hibernate.exception.ConstraintViolationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import javax.persistence.PersistenceException;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class EmployeeDAOTest {
     private Employee employee;
     private DAO<Employee> employeeDAO;
+    private EntityManager entityManager;
 
     @BeforeEach
-    public void initEach() throws IOException, ComprimentoInvalidoException {
-        Files.walk(Paths.get("src/main/resources/data/employee/"))
-                .filter(p -> p.toString().endsWith(".byte"))
-                .forEach(p -> new File(p.toString()).delete());
+    public void setup() throws ComprimentoInvalidoException {
+        EntityManagerFactory entityManagerFactory = Persistence
+                .createEntityManagerFactory("feedfront");
+        entityManager = entityManagerFactory.createEntityManager();
 
         employeeDAO = new EmployeeDAO();
-        employee = new Employee("João", "Silveira", "j.silveira@email.com");
+        employeeDAO.setEntityManager(entityManager);
 
-        employeeDAO.salvar(employee);
+        employee = new Employee("João", "Silveira", "j.silveira@email.com");
+        employee.setFeedbackFeitos(List.of());
+        employee.setFeedbackRecebidos(List.of());
+
+        entityManager.getTransaction().begin();
+        entityManager.createQuery("delete from Feedback f where 1 = 1").executeUpdate();
+        entityManager.createQuery("delete from Employee e where 1 = 1").executeUpdate();
+        entityManager.getTransaction().commit();
+
+        employee = employeeDAO.salvar(employee);
+
+    }
+
+    @AfterEach
+    public void closeEntityManager() {
+        entityManager.close();
     }
 
     @Test
-    public void listar() throws IOException {
+    public void listar() {
         List<Employee> result = employeeDAO.listar();
 
         assertFalse(result.isEmpty());
@@ -41,45 +58,53 @@ public class EmployeeDAOTest {
 
     @Test
     public void buscar() {
-        String idValido = employee.getId();
-        String idInvalido = UUID.randomUUID().toString();
+        long idInvalido = -1;
+        long idValido = employee.getId();
 
-        assertThrows(IOException.class, () -> employeeDAO.buscar(idInvalido));
-        Employee employeSalvo = assertDoesNotThrow(() -> employeeDAO.buscar(idValido));
+        Optional<Employee> vazio = employeeDAO.buscar(idInvalido);
+        Optional<Employee> preenchido = employeeDAO.buscar(idValido);
 
-        assertEquals(employeSalvo, employee);
+        assertTrue(vazio.isEmpty());
+        assertTrue(preenchido.isPresent());
+        assertEquals(preenchido.get(), employee);
     }
 
     @Test
-    public void salvar() throws IOException, ComprimentoInvalidoException {
-        String id = employee.getId();
-        Employee employeeSalvo = employeeDAO.buscar(id);
-        Employee employeeNaoSalvo = new Employee("Jose", "Silveira", "j.silveira@email.com");
+    public void salvar() throws ComprimentoInvalidoException {
+        Employee employeeValido = new Employee("Bruno", "Silveira", "b.silveira@email.com");
+        Employee employeeInvalido = new Employee("Jose", "Silveira", "j.silveira@email.com");
 
-        assertEquals(employee, employeeSalvo);
-        assertDoesNotThrow(() -> employeeDAO.salvar(employeeNaoSalvo));
+        assertDoesNotThrow(() -> employeeDAO.salvar(employeeValido));
+        PersistenceException exception = assertThrows(PersistenceException.class, () -> employeeDAO.salvar(employeeInvalido));
+
+        assertTrue(exception.getCause() instanceof ConstraintViolationException);
     }
 
     @Test
-    public void atualizarDados() throws IOException, ComprimentoInvalidoException, EmailInvalidoException {
-        employee.setNome("bruno");
-        employee.setEmail("b.silveira@email.com");
+    public void atualizarDados() throws ComprimentoInvalidoException {
+        employee.setNome("mario");
+        employee.setEmail("m.silveira@email.com");
 
-        Employee employeeSalvo = employeeDAO.buscar(employee.getId());
+        Optional<Employee> employeeSalvo = employeeDAO.buscar(employee.getId());
 
-        assertNotEquals(employeeSalvo.getNome(), employee.getNome());
-        assertNotEquals(employeeSalvo.getEmail(), employee.getEmail());
+        assertNotEquals(employeeSalvo.get().getNome(), employee.getNome());
+        assertNotEquals(employeeSalvo.get().getEmail(), employee.getEmail());
 
         Employee employeAtualizado = employeeDAO.salvar(employee);
 
-        assertEquals(employeAtualizado, employee);
+        assertEquals(employeAtualizado.getNome(), employee.getNome());
+        assertEquals(employeAtualizado.getEmail(), employee.getEmail());
     }
 
     @Test
     public void apagar() {
-        boolean apagou = assertDoesNotThrow(() -> employeeDAO.apagar(employee.getId()));
+        long idInvalido = -1;
+        long idValido = employee.getId();
 
-        assertTrue(apagou);
-        assertThrows(IOException.class, () -> employeeDAO.buscar(employee.getId()));
+        boolean apagou1 = employeeDAO.apagar(idValido);
+        boolean apagou2 = employeeDAO.apagar(idInvalido);
+
+        assertTrue(apagou1);
+        assertFalse(apagou2);
     }
 }

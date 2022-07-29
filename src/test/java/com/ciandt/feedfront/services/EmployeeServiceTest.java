@@ -1,31 +1,42 @@
 package com.ciandt.feedfront.services;
 
+
 import com.ciandt.feedfront.contracts.DAO;
 import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.excecoes.*;
+import com.ciandt.feedfront.excecoes.BusinessException;
+import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
+import com.ciandt.feedfront.excecoes.EmailInvalidoException;
+import com.ciandt.feedfront.excecoes.EntidadeNaoEncontradaException;
 import com.ciandt.feedfront.models.Employee;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import javax.persistence.PersistenceException;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 public class EmployeeServiceTest {
     private Employee employee;
+
     private DAO<Employee> employeeDAO;
     private Service<Employee> employeeService;
 
+    private ConstraintViolationException constraintViolationException = new ConstraintViolationException("string", new SQLException(), "string");
+
     @BeforeEach
     @SuppressWarnings("unchecked")
-    public void initEach() throws IOException, BusinessException, ComprimentoInvalidoException {
+    public void setup() throws BusinessException {
         employeeService = new EmployeeService();
         employeeDAO = (DAO<Employee>) Mockito.mock(DAO.class);
+
         employee = new Employee("João", "Silveira", "j.silveira@email.com");
+        employee.setId(1L);
 
         employeeService.setDAO(employeeDAO);
 
@@ -33,7 +44,7 @@ public class EmployeeServiceTest {
     }
 
     @Test
-    public void listar() throws IOException {
+    public void listar() {
         when(employeeDAO.listar()).thenReturn(List.of(employee));
 
         List<Employee> employees = employeeService.listar();
@@ -42,37 +53,38 @@ public class EmployeeServiceTest {
         assertTrue(employees.contains(employee));
         assertEquals(1, employees.size());
     }
-
+    
     @Test
-    public void buscarMalSucedida() throws IOException {
-        String uuid = "11f2105a-4f5b-4a48-bf57-3a4ff8b477b1";
+    public void buscarMalSucedida() {
+        long id = -1;
 
-        when(employeeDAO.buscar(uuid)).thenThrow(FileNotFoundException.class);
+        when(employeeDAO.buscar(id)).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.buscar(uuid));
+        Exception exception = assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.buscar(id));
         assertEquals("não foi possível encontrar o employee", exception.getMessage());
     }
 
     @Test
-    public void buscarBemSucedida() throws IOException {
-        String uuid = employee.getId();
+    public void buscarBemSucedida() {
+        long id = 1;
 
-        when(employeeDAO.buscar(uuid)).thenReturn(employee);
+        when(employeeDAO.buscar(id)).thenReturn(Optional.of(employee));
 
-        Employee employeeSalvo = assertDoesNotThrow(() -> employeeService.buscar(uuid));
+        Employee employeeSalvo = assertDoesNotThrow(() -> employeeService.buscar(id));
 
         assertEquals(employeeSalvo, employee);
     }
 
     @Test
-    public void salvar() throws IOException, ComprimentoInvalidoException {
+    public void salvar() throws ComprimentoInvalidoException {
         Employee employeeValido = new Employee("João", "Silveira", "joao.silveira@email.com");
         Employee employeeInvalido = new Employee("José", "Silveira", "j.silveira@email.com");
 
         when(employeeDAO.salvar(employeeValido)).thenReturn(employeeValido);
-        when(employeeDAO.listar()).thenReturn(List.of(employee, employeeValido));
+        when(employeeDAO.salvar(employeeInvalido)).thenThrow(new PersistenceException(constraintViolationException));
 
         assertDoesNotThrow(() -> employeeService.salvar(employeeValido));
+
         Exception exception1 = assertThrows(EmailInvalidoException.class, () -> employeeService.salvar(employeeInvalido));
         Exception exception2 = assertThrows(IllegalArgumentException.class, () -> employeeService.salvar(null));
 
@@ -81,46 +93,56 @@ public class EmployeeServiceTest {
     }
 
     @Test
-    public void atualizar() throws IOException, ComprimentoInvalidoException, BusinessException, ArquivoException, EmailInvalidoException {
-        Employee employee2 = new Employee("Bruno", "Silveira", "b.silveira@email.com");
-        Employee employee3 = new Employee("Vitor", "Fernandes", "vf.silveira@email.com");
+    public void atualizacaoBemSucedida() {
+        employee.setEmail("joao.silveira@email.com");
 
         when(employeeDAO.salvar(employee)).thenReturn(employee);
-        when(employeeDAO.salvar(employee2)).thenReturn(employee2);
-
-        when(employeeDAO.buscar(employee3.getId())).thenThrow(FileNotFoundException.class);
-
-        employeeService.salvar(employee);
-
-        when(employeeDAO.listar()).thenReturn(List.of(employee));
-
-        employeeService.salvar(employee2);
-
-        employee.setEmail("joao.silveira@email.com");
-        employee2.setNome("Jean");
-        employee2.setEmail("joao.silveira@email.com");
+        when(employeeDAO.buscar(employee.getId())).thenReturn(Optional.of(employee));
 
         Employee employeeSalvo = assertDoesNotThrow(() -> employeeService.atualizar(employee));
 
         assertEquals(employee, employeeSalvo);
-        assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.atualizar(employee3));
-        Exception exception = assertThrows(EmailInvalidoException.class, () -> employeeService.atualizar(employee2));
-
-        assertEquals("E-mail ja cadastrado no repositorio", exception.getMessage());
     }
 
     @Test
-    public void apagar() throws IOException, ComprimentoInvalidoException {
+    public void atualizacaoMalSucedida() throws BusinessException {
         Employee employee2 = new Employee("Bruno", "Silveira", "b.silveira@email.com");
-        String uuidValido = employee.getId();
-        String uuidInvalido = employee2.getId();
+        Employee employee3 = new Employee("Maria", "Silveira", "b.silveira@email.com");
 
-        when(employeeDAO.apagar(uuidValido)).thenReturn(true);
-        when(employeeDAO.apagar(uuidInvalido)).thenThrow(FileNotFoundException.class);
+        employee2.setId(10L);
 
-        assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.apagar(uuidInvalido));
+        when(employeeDAO.salvar(employee)).thenReturn(employee);
+        when(employeeDAO.salvar(employee2)).thenReturn(employee2);
+        when(employeeDAO.buscar(employee2.getId())).thenReturn(Optional.of(employee2));
 
-        assertDoesNotThrow(() -> employeeService.apagar(uuidValido));
+        employeeService.salvar(employee);
+        employeeService.salvar(employee2);
 
+        employee.setEmail("j.silveira@email.com");
+
+        when(employeeDAO.salvar(employee2)).thenThrow(new PersistenceException(constraintViolationException));
+
+        employee2.setNome("Jean");
+        employee2.setEmail("joao.silveira@email.com");
+
+        assertThrows(IllegalArgumentException.class, () -> employeeService.atualizar(null));
+        Exception exception1 = assertThrows(IllegalArgumentException.class, () -> employeeService.atualizar(employee3));
+        Exception exception2 = assertThrows(EmailInvalidoException.class, () -> employeeService.atualizar(employee2));
+
+        assertEquals("employee inválido: não possui ID", exception1.getMessage());
+        assertEquals("já existe um employee cadastrado com esse e-mail", exception2.getMessage());
+    }
+
+    @Test
+    public void apagar() {
+        long idInvalido = -1;
+        long idValido = employee.getId();
+
+        when(employeeDAO.buscar(idInvalido)).thenReturn(Optional.empty());
+        when(employeeDAO.buscar(employee.getId())).thenReturn(Optional.of(employee));
+
+        assertDoesNotThrow(() -> employeeService.apagar(idValido));
+
+        assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.apagar(idInvalido));
     }
 }

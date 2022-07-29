@@ -3,7 +3,6 @@ package com.ciandt.feedfront.services;
 import com.ciandt.feedfront.contracts.DAO;
 import com.ciandt.feedfront.contracts.Service;
 import com.ciandt.feedfront.excecoes.BusinessException;
-import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
 import com.ciandt.feedfront.excecoes.EntidadeNaoEncontradaException;
 import com.ciandt.feedfront.models.Employee;
 import com.ciandt.feedfront.models.Feedback;
@@ -11,51 +10,53 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 public class FeedbackServiceTest {
-    private final LocalDate localDate = LocalDate.now();
-    private final String LOREM_IPSUM_FEEDBACK = "Lorem Ipsum is simply dummy text of the printing and typesetting industry";
-    private Feedback feedback;
-
     private Employee autor;
-
     private Employee proprietario;
 
-    private Service<Feedback> service;
+    private Feedback feedback;
 
-    private DAO<Feedback> feedbackDao;
+    private DAO<Feedback> feedbackDAO;
+    private FeedbackService feedbackService;
+    private Service<Employee> employeeService;
 
     @BeforeEach
-    public void initEach() throws IOException, BusinessException {
+    @SuppressWarnings("unchecked")
+    public void setup() throws BusinessException {
+        feedbackDAO = (DAO<Feedback>) Mockito.mock(DAO.class);
+        employeeService = (Service<Employee>) Mockito.mock(Service.class);
 
-        service = new FeedbackService();
-
-        feedbackDao = (DAO<Feedback>) Mockito.mock(DAO.class);
+        feedbackService = new FeedbackService();
+        feedbackService.setDAO(feedbackDAO);
+        feedbackService.setEmployeeService(employeeService);
 
         autor = new Employee("João", "Silveira", "j.silveira@email.com");
         proprietario = new Employee("Mateus", "Santos", "m.santos@email.com");
 
-        service.setDAO(feedbackDao);
+        feedback = new Feedback(LocalDate.now(), autor, proprietario, "descrição");
 
-        feedback = new Feedback(localDate, autor, proprietario, LOREM_IPSUM_FEEDBACK);
+        autor.setId(1L);
+        feedback.setId(1L);
+        proprietario.setId(2L);
 
+        when(employeeService.buscar(autor.getId())).thenReturn(autor);
+        when(employeeService.buscar(autor.getId())).thenReturn(autor);
+
+        feedbackService.salvar(feedback);
     }
 
     @Test
-    public void listar() throws IOException {
-        List<Feedback> listaRetorno = new ArrayList<>();
-        listaRetorno.add(feedback);
-        when(feedbackDao.listar()).thenReturn(listaRetorno);
-        service.setDAO(feedbackDao);
-        List<Feedback> lista = assertDoesNotThrow(() -> service.listar());
+    public void listar() {
+        when(feedbackDAO.listar()).thenReturn(List.of(feedback));
+
+        List<Feedback> lista = assertDoesNotThrow(() -> feedbackService.listar());
 
         assertFalse(lista.isEmpty());
         assertTrue(lista.contains(feedback));
@@ -63,57 +64,45 @@ public class FeedbackServiceTest {
     }
 
     @Test
-    public void salvar() throws IOException, BusinessException, ComprimentoInvalidoException {
-        Employee employeeNaoSalvo = new Employee("miguel", "vitor", "m.vitor@email.com");
+    public void buscar() {
+        long idInvalido = -1;
+        long idValido = feedback.getId();
 
-        Feedback feedbackValido1 = new Feedback(localDate, autor, proprietario, LOREM_IPSUM_FEEDBACK);
-        Feedback feedbackValido2 = new Feedback(localDate, autor, proprietario, LOREM_IPSUM_FEEDBACK);
+        when(feedbackDAO.buscar(idValido)).thenReturn(Optional.of(feedback));
+        when(feedbackDAO.buscar(idInvalido)).thenReturn(Optional.empty());
 
-        Feedback feedbackInvalido1 = new Feedback(localDate, null, null, "feedback sem autor e proprietario");
-        Feedback feedbackInvalido2 = new Feedback(localDate, autor, employeeNaoSalvo, "feedback sem autor e proprietario");
-
-        when(feedbackDao.salvar(feedbackValido1)).thenReturn(feedbackValido1);
-        when(feedbackDao.salvar(feedbackValido2)).thenReturn(feedbackValido2);
-        when(feedbackDao.buscar(feedbackValido2.getId())).thenReturn(feedbackValido2);
-        when(feedbackDao.buscar(feedbackValido1.getId())).thenReturn(feedbackValido1);
-        when(feedbackDao.buscar(feedbackInvalido2.getId())).thenThrow(new IOException());
-        service.setDAO(feedbackDao);
-        assertDoesNotThrow(() -> service.salvar(feedbackValido1));
-        assertDoesNotThrow(() -> service.salvar(feedbackValido2));
-
-        Exception exception1 = assertThrows(IllegalArgumentException.class, () -> service.salvar(feedbackInvalido1));
-        Exception exception2 = assertThrows(IllegalArgumentException.class, () -> service.salvar(null));
-        Exception exception3 = assertThrows(EntidadeNaoEncontradaException.class, () -> service.salvar(feedbackInvalido2));
-
-        assertEquals("feedback inválido", exception1.getMessage());
-        assertEquals("feedback inválido", exception2.getMessage());
-        assertEquals("não foi possível encontrar o feedback", exception3.getMessage());
-    }
-
-    @Test
-    public void buscar() throws IOException, BusinessException {
-        Feedback feedbackNaoSalvo = new Feedback(localDate, autor, proprietario, "tt");
-        when(feedbackDao.buscar(feedback.getId())).thenReturn(feedback);
-        when(feedbackDao.buscar(feedbackNaoSalvo.getId())).thenThrow(new IOException());
-        service.setDAO(feedbackDao);
-        assertDoesNotThrow(() -> service.buscar(feedback.getId()));
-        Exception exception = assertThrows(EntidadeNaoEncontradaException.class, () -> service.buscar(feedbackNaoSalvo.getId()));
+        assertDoesNotThrow(() -> feedbackService.buscar(feedback.getId()));
+        Exception exception = assertThrows(EntidadeNaoEncontradaException.class, () -> feedbackService.buscar(idInvalido));
 
         assertEquals("não foi possível encontrar o feedback", exception.getMessage());
     }
 
     @Test
-    public void apagar() throws IOException, ComprimentoInvalidoException {
-        Feedback feedback2 = new Feedback(localDate, autor, null, "feedback sem autor e proprietario");
-        String uuidValido = feedback.getId();
-        String uuidInvalido = feedback2.getId();
+    public void salvar() throws BusinessException {
+        Employee employeeNaoSalvo = new Employee("miguel", "vitor", "m.vitor@email.com");
+        employeeNaoSalvo.setId(-1L);
 
-        when(feedbackDao.apagar(uuidValido)).thenReturn(true);
-        when(feedbackDao.apagar(uuidInvalido)).thenThrow(FileNotFoundException.class);
+        Feedback feedbackValido1 = new Feedback(LocalDate.now(), autor, proprietario, "descrição");
+        Feedback feedbackValido2 = new Feedback(LocalDate.now(), autor, proprietario, "descrição");
 
-        assertThrows(EntidadeNaoEncontradaException.class, () -> service.apagar(uuidInvalido));
+        Feedback feedbackInvalido1 = new Feedback(LocalDate.now(), null, null, "feedback sem autor e proprietario");
+        Feedback feedbackInvalido2 = new Feedback(LocalDate.now(), null, employeeNaoSalvo, "feedback sem autor e proprietario");
 
-        assertDoesNotThrow(() -> service.apagar(uuidValido));
+        when(feedbackDAO.salvar(feedbackValido1)).thenReturn(feedbackValido1);
+        when(feedbackDAO.salvar(feedbackValido2)).thenReturn(feedbackValido2);
 
+        when(employeeService.buscar(employeeNaoSalvo.getId())).thenThrow(new EntidadeNaoEncontradaException("não foi possível encontrar o employee"));
+
+        assertDoesNotThrow(() -> feedbackService.salvar(feedbackValido1));
+        assertDoesNotThrow(() -> feedbackService.salvar(feedbackValido2));
+
+        Exception exception1 = assertThrows(IllegalArgumentException.class, () -> feedbackService.salvar(feedbackInvalido1));
+        Exception exception2 = assertThrows(IllegalArgumentException.class, () -> feedbackService.salvar(null));
+        Exception exception3 = assertThrows(EntidadeNaoEncontradaException.class, () -> feedbackService.salvar(feedbackInvalido2));
+
+        assertEquals("employee inválido", exception1.getMessage());
+        assertEquals("feedback inválido", exception2.getMessage());
+        assertEquals("não foi possível encontrar o employee", exception3.getMessage());
     }
+
 }
