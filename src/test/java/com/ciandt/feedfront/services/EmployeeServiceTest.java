@@ -1,17 +1,19 @@
 package com.ciandt.feedfront.services;
 
 
-import com.ciandt.feedfront.contracts.DAO;
-import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.excecoes.BusinessException;
-import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
-import com.ciandt.feedfront.excecoes.EmailInvalidoException;
-import com.ciandt.feedfront.excecoes.EntidadeNaoEncontradaException;
+import com.ciandt.feedfront.exceptions.BusinessException;
+import com.ciandt.feedfront.exceptions.ComprimentoInvalidoException;
+import com.ciandt.feedfront.exceptions.EmailInvalidoException;
+import com.ciandt.feedfront.exceptions.EntidadeNaoEncontradaException;
 import com.ciandt.feedfront.models.Employee;
+import com.ciandt.feedfront.repositories.EmployeeRepository;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import javax.persistence.PersistenceException;
 import java.sql.SQLException;
@@ -21,31 +23,31 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+// O Service deve ser capaz de trabalhar em conjunto com o DAO para executar as tarefas
+// Sempre valendo-se das regras de negócio
+
+@ExtendWith(MockitoExtension.class)
 public class EmployeeServiceTest {
     private Employee employee;
+    @Mock
+    private EmployeeRepository employeeRepository;
+    @InjectMocks
+    private EmployeeServiceImpl employeeService;
 
-    private DAO<Employee> employeeDAO;
-    private Service<Employee> employeeService;
-
-    private ConstraintViolationException constraintViolationException = new ConstraintViolationException("string", new SQLException(), "string");
+    // essa exception é apenas um Mock...
+    private final ConstraintViolationException constraintViolationException = new ConstraintViolationException("string", new SQLException(), "string");
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     public void setup() throws BusinessException {
-        employeeService = new EmployeeService();
-        employeeDAO = (DAO<Employee>) Mockito.mock(DAO.class);
-
         employee = new Employee("João", "Silveira", "j.silveira@email.com");
         employee.setId(1L);
-
-        employeeService.setDAO(employeeDAO);
 
         employeeService.salvar(employee);
     }
 
     @Test
     public void listar() {
-        when(employeeDAO.listar()).thenReturn(List.of(employee));
+        when(employeeRepository.findAll()).thenReturn(List.of(employee));
 
         List<Employee> employees = employeeService.listar();
 
@@ -53,12 +55,14 @@ public class EmployeeServiceTest {
         assertTrue(employees.contains(employee));
         assertEquals(1, employees.size());
     }
-    
+
+    // Nota: esses dois métodos estão testando o "buscar" do service
+    // Mas estão separados para reforçar a independência dos testes como manda o padrão FIRST: https://hackernoon.com/test-f-i-r-s-t-65e42f3adc17
     @Test
     public void buscarMalSucedida() {
         long id = -1;
 
-        when(employeeDAO.buscar(id)).thenReturn(Optional.empty());
+        when(employeeRepository.findById(id)).thenReturn(Optional.empty());
 
         Exception exception = assertThrows(EntidadeNaoEncontradaException.class, () -> employeeService.buscar(id));
         assertEquals("não foi possível encontrar o employee", exception.getMessage());
@@ -68,7 +72,7 @@ public class EmployeeServiceTest {
     public void buscarBemSucedida() {
         long id = 1;
 
-        when(employeeDAO.buscar(id)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findById(id)).thenReturn(Optional.of(employee));
 
         Employee employeeSalvo = assertDoesNotThrow(() -> employeeService.buscar(id));
 
@@ -80,8 +84,8 @@ public class EmployeeServiceTest {
         Employee employeeValido = new Employee("João", "Silveira", "joao.silveira@email.com");
         Employee employeeInvalido = new Employee("José", "Silveira", "j.silveira@email.com");
 
-        when(employeeDAO.salvar(employeeValido)).thenReturn(employeeValido);
-        when(employeeDAO.salvar(employeeInvalido)).thenThrow(new PersistenceException(constraintViolationException));
+        when(employeeRepository.save(employeeValido)).thenReturn(employeeValido);
+        when(employeeRepository.save(employeeInvalido)).thenThrow(new PersistenceException(constraintViolationException));
 
         assertDoesNotThrow(() -> employeeService.salvar(employeeValido));
 
@@ -96,8 +100,8 @@ public class EmployeeServiceTest {
     public void atualizacaoBemSucedida() {
         employee.setEmail("joao.silveira@email.com");
 
-        when(employeeDAO.salvar(employee)).thenReturn(employee);
-        when(employeeDAO.buscar(employee.getId())).thenReturn(Optional.of(employee));
+        when(employeeRepository.save(employee)).thenReturn(employee);
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
         Employee employeeSalvo = assertDoesNotThrow(() -> employeeService.atualizar(employee));
 
@@ -111,16 +115,16 @@ public class EmployeeServiceTest {
 
         employee2.setId(10L);
 
-        when(employeeDAO.salvar(employee)).thenReturn(employee);
-        when(employeeDAO.salvar(employee2)).thenReturn(employee2);
-        when(employeeDAO.buscar(employee2.getId())).thenReturn(Optional.of(employee2));
+        when(employeeRepository.save(employee)).thenReturn(employee);
+        when(employeeRepository.save(employee2)).thenReturn(employee2);
+        when(employeeRepository.findById(employee2.getId())).thenReturn(Optional.of(employee2));
 
         employeeService.salvar(employee);
         employeeService.salvar(employee2);
 
         employee.setEmail("j.silveira@email.com");
 
-        when(employeeDAO.salvar(employee2)).thenThrow(new PersistenceException(constraintViolationException));
+        when(employeeRepository.save(employee2)).thenThrow(new PersistenceException(constraintViolationException));
 
         employee2.setNome("Jean");
         employee2.setEmail("joao.silveira@email.com");
@@ -138,8 +142,8 @@ public class EmployeeServiceTest {
         long idInvalido = -1;
         long idValido = employee.getId();
 
-        when(employeeDAO.buscar(idInvalido)).thenReturn(Optional.empty());
-        when(employeeDAO.buscar(employee.getId())).thenReturn(Optional.of(employee));
+        when(employeeRepository.findById(idInvalido)).thenReturn(Optional.empty());
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
 
         assertDoesNotThrow(() -> employeeService.apagar(idValido));
 

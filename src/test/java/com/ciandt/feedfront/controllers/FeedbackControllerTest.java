@@ -1,38 +1,38 @@
 package com.ciandt.feedfront.controllers;
 
-import com.ciandt.feedfront.contracts.Service;
-import com.ciandt.feedfront.excecoes.BusinessException;
+import com.ciandt.feedfront.exceptions.BusinessException;
 import com.ciandt.feedfront.models.Employee;
 import com.ciandt.feedfront.models.Feedback;
+import com.ciandt.feedfront.services.FeedbackService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 public class FeedbackControllerTest {
 
     private Feedback feedback;
-
     private Employee autor;
-
     private Employee proprietario;
 
+    @InjectMocks
     private FeedbackController controller;
-    private Service<Feedback> feedbackService;
+    @Mock
+    private FeedbackService feedbackService;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
-    public void setup() throws IOException, BusinessException {
-        feedbackService = (Service<Feedback>) Mockito.mock(Service.class);
-
-        controller = new FeedbackController();
-        controller.setService(feedbackService);
+    public void setup() throws BusinessException {
 
         autor = new Employee("João", "Silveira", "j.silveira@email.com");
         proprietario = new Employee("Mateus", "Santos", "m.santos@email.com");
@@ -46,18 +46,22 @@ public class FeedbackControllerTest {
 
     @Test
     public void listar() {
-        Collection<Feedback> listaFeedback = controller.listar();
+        when(feedbackService.listar()).thenReturn(List.of(feedback));
 
-        assertNotNull(listaFeedback);
+        Collection<Feedback> listaFeedback = assertDoesNotThrow(controller::listar).getBody();
+        assertEquals(1, listaFeedback.size());
+
     }
 
     @Test
     public void buscar() throws BusinessException {
+
+
         long id = feedback.getId();
 
         when(feedbackService.buscar(id)).thenReturn(feedback);
 
-        Feedback feedbackSalvo = assertDoesNotThrow(() -> controller.buscar(id));
+        Feedback feedbackSalvo = assertDoesNotThrow(() -> controller.buscar(id).getBody());
 
         assertEquals(feedback, feedbackSalvo);
 
@@ -69,7 +73,7 @@ public class FeedbackControllerTest {
 
         when(feedbackService.salvar(novoFeedback)).thenReturn(novoFeedback);
 
-        Feedback feedbackSalvo = controller.salvar(novoFeedback);
+        Feedback feedbackSalvo = controller.salvar(novoFeedback).getBody();
 
         assertEquals(novoFeedback, feedbackSalvo);
     }

@@ -1,4 +1,4 @@
-package com.ciandt.feedfront.excecoes;
+package com.ciandt.feedfront.exceptions;
 
 public class EntidadeNaoEncontradaException extends BusinessException {
     public EntidadeNaoEncontradaException(String message) {

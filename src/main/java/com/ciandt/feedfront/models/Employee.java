@@ -1,23 +1,33 @@
 package com.ciandt.feedfront.models;
 
-import com.ciandt.feedfront.excecoes.ComprimentoInvalidoException;
+import com.ciandt.feedfront.exceptions.ComprimentoInvalidoException;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import javax.persistence.*;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Objects;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
 @Table(name = "EMPLOYEE")
 public class Employee implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(name = "nome", nullable = false)
+    @Column(nullable = false)
+    @Size(min = 3, message = "O nome deve ter mais de 2 caracteres")
     private String nome;
+    @Size(min = 3, message = "O sobrenome deve ter mais de 2 caracteres")
     @Column(name = "sobrenome", nullable = false)
     private String sobrenome;
     @Column(name = "email", nullable = false, unique = true)
+    @Email(message = "Já existe um cadastro com esse email")
     private String email;
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "autor_id")
@@ -26,90 +36,10 @@ public class Employee implements Serializable {
     @JoinColumn(name = "proprietario_id")
     private List<Feedback> feedbackRecebidos;
 
-    public Employee() {
-    }
-
     public Employee(String nome, String sobrenome, String email) throws ComprimentoInvalidoException {
         setNome(nome);
         setSobrenome(sobrenome);
         setEmail(email);
     }
 
-    public String getNome() {
-        return nome;
-    }
-
-    public void setNome(String nome) throws ComprimentoInvalidoException {
-        if (nome.length() <= 2)
-            throw new ComprimentoInvalidoException("Comprimento do nome deve ser maior que 2 caracteres.");
-        this.nome = nome;
-    }
-
-    public String getSobrenome() {
-        return sobrenome;
-    }
-
-    public void setSobrenome(String sobrenome) throws ComprimentoInvalidoException {
-        if (sobrenome.length() <= 2)
-            throw new ComprimentoInvalidoException("Comprimento do sobrenome deve ser maior que 2 caracteres.");
-        this.sobrenome = sobrenome;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public List<Feedback> getFeedbackFeitos() {
-        return feedbackFeitos;
-    }
-
-    public List<Feedback> getFeedbackRecebidos() {
-        return feedbackRecebidos;
-    }
-
-    public void setFeedbackFeitos(List<Feedback> feedbackFeitos) {
-        this.feedbackFeitos = feedbackFeitos;
-    }
-
-    public void setFeedbackRecebidos(List<Feedback> feedbackRecebidos) {
-        this.feedbackRecebidos = feedbackRecebidos;
-    }
-
-    @Override
-    public String toString() {
-        return "\nid='" + id + "'" +
-                ", nome='" + nome + "'" +
-                ", sobrenome='" + sobrenome + "'" +
-                ", email='" + email + "'";
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Employee employee = (Employee) o;
-
-        if (!Objects.equals(id, employee.id)) return false;
-        return Objects.equals(email, employee.email);
-    }
-
-    @Override
-    public int hashCode() {
-        int result = id != null ? id.hashCode() : 0;
-        result = 31 * result + (email != null ? email.hashCode() : 0);
-        return result;
-    }
 }
